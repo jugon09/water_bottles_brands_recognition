@@ -1,10 +1,10 @@
-import cv2
 import os
 
+import cv2
 from keras import backend as K
 
 K.set_image_dim_ordering('tf')
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 
 

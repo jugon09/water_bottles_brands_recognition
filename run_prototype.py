@@ -6,10 +6,10 @@ from cnn import create_cnn
 
 size = [128, 256]
 channels = [1, 3]
-prototype = 10
+prototype = 2
 PATH = os.getcwd()
 num_classes = 10
-num_epoch = 15
+num_epoch = 20
 
 prototype_folder = os.path.join(PATH, 'Prototype_' + str(prototype))
 

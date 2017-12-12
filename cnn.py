@@ -1,27 +1,23 @@
-import cv2
+import itertools
 import os
+from collections import Counter
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from keras import backend as K
 from sklearn.cross_validation import train_test_split
-from sklearn.utils import shuffle
-from collections import Counter
-from PIL import Image
 from sklearn.metrics import classification_report, confusion_matrix
-import itertools
+from sklearn.utils import shuffle
 
 K.set_image_dim_ordering('tf')
 
-from keras.models import model_from_json
-from keras.models import load_model
 from keras import optimizers
 from keras import callbacks
 from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 
 """PATH = os.getcwd()
 data_path = PATH + '/data_resized_extended_5'
@@ -39,7 +35,7 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.35, random_state=2)
     model = define_model(img_data[0].shape, num_classes)
     callbacks_list = define_callbacks(path_to_store)
-    hist = model.fit(x_train, y_train, batch_size=32, epochs=num_epoch, verbose=1, validation_data=(x_test, y_test),
+    hist = model.fit(x_train, y_train, batch_size=2, epochs=num_epoch, verbose=1, validation_data=(x_test, y_test),
                      callbacks=callbacks_list)
     save_model(model, path_to_store)
     plot_confusion_matrix(model, x_test, y_test, path_to_store)
@@ -108,8 +104,8 @@ def define_model(input_shape, num_classes):
     model.add(Activation('softmax'))
 
     sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.0, nesterov=False)
-    model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=["accuracy"])
-    # model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=["accuracy"])
+    #model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=["accuracy"])
+    model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=["accuracy"])
     return model
 
 
@@ -121,7 +117,7 @@ def define_callbacks(path):
 
     filepath = path + "/Best-weights-my_model-{epoch:03d}-{loss:.4f}-{acc:.4f}-{val_loss:.4f}-{val_acc:.4f}.hdf5"
 
-    checkpoint = callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='auto')
+    checkpoint = callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
     callbacks_list = [csv_log,
                       # , early_stopping,
@@ -440,12 +436,17 @@ fig.savefig("featuremaps-layer-{}".format(layer_num) + '.jpg')
 
 
 # Plotting the confusion matrix
-def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
+def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False, title='Confusion matrix',
+                          cmap=plt.cm.Blues):
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
     """
-    loaded_model = load_model('model2.hdf5')
+
+    """s = [f for f in os.listdir('.') if 'Best' in f]
+    filename = s[0]
+    loaded_model = load_model('model.hdf5')
+    loaded_model.load_weights(filename)"""
     y_pred = model.predict_classes(x_test)
     cnf_matrix = (confusion_matrix(np.argmax(y_test, axis=1), y_pred))
     np.set_printoptions(precision=2)
@@ -484,7 +485,7 @@ def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     plt.figure()
-    #plt.savefig(path_to_store+'/confusion_matrix.jpg')
+    # plt.savefig(path_to_store+'/confusion_matrix.jpg')
 
 
 # Compute confusion matrix
@@ -506,7 +507,6 @@ plt.show()
 """
 # %%
 # Saving and loading model and weights
-from keras.models import model_from_json
 from keras.models import load_model
 
 # serialize model to JSON
