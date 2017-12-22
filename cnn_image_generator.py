@@ -1,3 +1,4 @@
+import os
 import itertools
 import os
 from collections import Counter
@@ -18,6 +19,12 @@ from keras.utils import np_utils
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
+import cv2
+from keras import backend as K
+
+K.set_image_dim_ordering('tf')
+from keras.preprocessing.image import ImageDataGenerator
+import numpy as np
 
 """PATH = os.getcwd()
 data_path = PATH + '/data_resized_extended_5'
@@ -25,8 +32,9 @@ data_dir_list = os.listdir(data_path)
 data_dir_list.sort()"""
 
 
-def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels):
-    img_data = get_images(data_path, channels)
+def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_rows, img_cols, batch_size=32,
+               dataset_size=10000, train_fraction=0.65, validation_fraction=0.35):
+    """img_data = get_images(data_path, channels)
     labels = create_labels(img_data.shape[0], data_path)
     # convert class labels to on-hot encoding
     Y = np_utils.to_categorical(labels, num_classes)
@@ -35,11 +43,60 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.35, random_state=2)
     model = define_model(img_data[0].shape, num_classes)
     callbacks_list = define_callbacks(path_to_store)
-    hist = model.fit(x_train, y_train, batch_size=1, epochs=num_epoch, verbose=1, validation_data=(x_test, y_test),
+    hist = model.fit(x_train, y_train, batch_size=4, epochs=num_epoch, verbose=1, validation_data=(x_test, y_test),
                      callbacks=callbacks_list)
-
+    """
+    train_size = int(dataset_size * train_fraction)
+    validation_size = int(dataset_size * validation_fraction)
+    is_rgb = True if channels == 3 else False
+    train_generator = create_train_validation(data_path=data_path, width=img_rows, height=img_cols,
+                                              batch_size=batch_size, is_rgb=is_rgb)
+    validation_generator = create_test_validation(data_path=data_path, width=img_rows, height=img_cols,
+                                                  batch_size=batch_size, is_rgb=is_rgb)
+    model = define_model(input_shape=train_generator.image_shape, num_classes=num_classes)
+    callbacks_list = define_callbacks(path_to_store)
+    model.fit_generator(
+        train_generator,
+        samples_per_epoch=train_size,
+        epochs=num_epoch,
+        verbose=1,
+        callbacks=callbacks_list,
+        validation_data=validation_generator,
+        validation_steps=validation_size)
     save_model(model, path_to_store)
-    plot_confusion_matrix(model, x_test, y_test, path_to_store)
+    plot_confusion_matrix(model, validation_generator, validation_size, path_to_store)
+
+
+def create_train_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
+    datagen = ImageDataGenerator(
+        rotation_range=20,
+        width_shift_range=0.05,
+        height_shift_range=0.05,
+        zoom_range=0.2,
+        vertical_flip=True,
+        fill_mode='nearest',
+        rescale=1. / 255)
+    color_mode = 'rgb' if is_rgb else 'grayscale'
+    train_generator = datagen.flow_from_directory(
+        directory=os.path.join(data_path, 'Train'),
+        target_size=(width, height),
+        batch_size=batch_size,
+        color_mode=color_mode,
+        class_mode='categorical')
+    return train_generator
+
+
+def create_test_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
+    color_mode = 'rgb' if is_rgb else 'grayscale'
+    validation_generator = test_datagen.flow_from_directory(
+        directory=os.path.join(data_path, 'Validation'),
+        target_size=(width, height),
+        color_mode=color_mode,
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=True)
+    return validation_generator
 
 
 def get_images(data_path, channels):
@@ -83,9 +140,9 @@ def create_labels(num_of_samples, data_path):
 def define_model(input_shape, num_classes):
     model = Sequential()
 
-    model.add(Convolution2D(32, 3, 3, border_mode='same', input_shape=input_shape))
+    model.add(Convolution2D(32, (3, 3), border_mode='same', input_shape=input_shape))
     model.add(Activation('relu'))
-    model.add(Convolution2D(32, 3, 3))
+    model.add(Convolution2D(32, (3, 3)))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.5))
@@ -105,7 +162,7 @@ def define_model(input_shape, num_classes):
     model.add(Activation('softmax'))
 
     sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.0, nesterov=False)
-    #model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=["accuracy"])
+    # model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=["accuracy"])
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=["accuracy"])
     return model
 
@@ -437,7 +494,7 @@ fig.savefig("featuremaps-layer-{}".format(layer_num) + '.jpg')
 
 
 # Plotting the confusion matrix
-def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False, title='Confusion matrix',
+def plot_confusion_matrix(model, validation_generator, steps, path_to_store, normalize=False, title='Confusion matrix',
                           cmap=plt.cm.Blues):
     """
     This function prints and plots the confusion matrix.
@@ -448,8 +505,12 @@ def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False,
     filename = s[0]
     loaded_model = load_model('model.hdf5')
     loaded_model.load_weights(filename)"""
-    y_pred = model.predict_classes(x_test, batch_size=1)
-    cnf_matrix = (confusion_matrix(np.argmax(y_test, axis=1), y_pred))
+    Y_pred = model.predict_generator(generator=validation_generator, steps=steps)
+    y_pred = np.argmax(Y_pred, axis=1)
+    print('Confusion Matrix')
+    print(confusion_matrix(validation_generator.classes, y_pred))
+    print(classification_report(validation_generator.classes, y_pred))
+    """cnf_matrix = (confusion_matrix(np.argmax(y_test, axis=1), y_pred))
     np.set_printoptions(precision=2)
 
     target_names = ['class 0(Aquabona)', 'class 1(Bezoya)', 'class 2(Evian)', 'class 3(Font_Vella)',
@@ -486,7 +547,7 @@ def plot_confusion_matrix(model, x_test, y_test, path_to_store, normalize=False,
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     plt.figure()
-    # plt.savefig(path_to_store+'/confusion_matrix.jpg')
+    # plt.savefig(path_to_store+'/confusion_matrix.jpg')"""
 
 
 # Compute confusion matrix
