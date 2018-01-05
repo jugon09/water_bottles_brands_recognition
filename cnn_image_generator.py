@@ -1,4 +1,4 @@
-import os
+
 import itertools
 import os
 from collections import Counter
@@ -491,6 +491,41 @@ for i in range(int(num_of_featuremaps)):
 plt.show()
 fig.savefig("featuremaps-layer-{}".format(layer_num) + '.jpg')
 """
+
+
+def select_best_model(data_folder, window_size, model):
+    """
+    This function load the model weights with the best val_loss and deletes the others from data folder
+    :param data_folder:
+    :param window_size:
+    :param model
+    """
+    files = [f for f in os.listdir(data_folder) if 'Best' in f]
+    files.sort()
+    n = len(files)
+    # val_loss = (min_val_loss, position_val_loss_min)
+    val_loss = [float('+Infinity'), -1]
+    val_loss_position = 6
+    i = 2
+    while i + 2 < n:
+        print('iter ' + str(i))
+        suma = 0.0
+        j = i - 2
+        cont = 0
+        while j < n and cont < window_size:
+            epoch_values = files[j].split('-')
+            print(epoch_values[val_loss_position])
+            suma = suma + float(epoch_values[val_loss_position])
+            j = j + 1
+            cont = cont + 1
+        print('media ' + str(suma/window_size))
+        if suma/window_size < val_loss[0]:
+            val_loss[0] = suma/window_size
+            val_loss[1] = i
+        i = i + 1
+    print('mejor media ' + str(val_loss[0]))
+    print('pos ' + str(i))
+    model = load_model(os.path.join(data_folder, files[val_loss[1]]))
 
 
 # Plotting the confusion matrix
