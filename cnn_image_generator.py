@@ -1,5 +1,6 @@
 import itertools
 import os
+import csv
 from collections import Counter
 
 import cv2
@@ -67,6 +68,7 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_r
     save_model(model, path_to_store)
     model = select_best_model(data_path=path_to_store, model=model, window_size=5)
     plot_confusion_matrix(model, validation_generator, validation_size, path_to_store)
+    compute_correlation_val_loss_acc_loss(path_to_store)
 
 
 def create_train_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
@@ -99,44 +101,6 @@ def create_test_validation(data_path, width=128, height=128, batch_size=32, is_r
         class_mode='categorical',
         shuffle=False)
     return validation_generator
-
-
-def get_images(data_path, channels):
-    data_dir_list = os.listdir(data_path)
-    data_dir_list.sort()
-    img_data_list = []
-    for dataset in data_dir_list:
-        img_list = os.listdir(data_path + '/' + dataset)
-        print('Loaded the images of dataset-' + '{}\n'.format(dataset))
-        for img in img_list:
-            input_img = cv2.imread(data_path + '/' + dataset + '/' + img)
-            if channels == 1:
-                input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2GRAY)
-            img_data_list.append(input_img)
-    img_data = np.array(img_data_list)
-    img_data = img_data.astype('float32')
-    # Normalization
-    img_data /= 255
-    if channels == 1:
-        img_data = np.expand_dims(img_data, axis=4)
-    print(img_data.shape)
-    return img_data
-
-
-def create_labels(num_of_samples, data_path):
-    labels = np.ones(num_of_samples, dtype='int64')
-    data_dir_list = os.listdir(data_path)
-    data_dir_list.sort()
-    l = 0
-    actual = 0
-    for dataset in data_dir_list:
-        nfiles = len(os.listdir(data_path + '/' + dataset))
-        for i in range(actual, actual + nfiles):
-            labels[i] = l
-        l = l + 1
-        actual = actual + nfiles
-    print(Counter(labels))
-    return labels
 
 
 def define_model(input_shape, num_classes):
@@ -289,8 +253,8 @@ for dataset in data_dir_list:
 
 print(Counter(labels))"""
 
-names = ['Aquabona', 'Bezoya', 'Evian', 'Font_Vella', 'Lanjaron', 'Nestle_Aquarel', 'Solan_de_Cabras', 'Veri',
-         'Vichy_Catalan', 'Viladrau']
+"""names = ['Aquabona', 'Bezoya', 'Evian', 'Font_Vella', 'Lanjaron', 'Nestle_Aquarel', 'Solan_de_Cabras', 'Veri',
+         'Vichy_Catalan', 'Viladrau']"""
 
 """"# convert class labels to on-hot encoding
 Y = np_utils.to_categorical(labels, num_classes)
@@ -497,7 +461,7 @@ fig.savefig("featuremaps-layer-{}".format(layer_num) + '.jpg')
 def select_best_model(data_path, model, window_size=5):
     """
     This function load the model weights with the best val_loss and deletes the others from data folder
-    :param data_folder:
+    :param data_path:
     :param window_size:
     :param model
     """
@@ -588,6 +552,41 @@ def plot_confusion_matrix(model, validation_generator, steps, path_to_store, nor
     plt.xlabel('Predicted label')
     plt.figure()
     # plt.savefig(path_to_store+'/confusion_matrix.jpg')"""
+
+
+def compute_correlation_val_loss_acc_loss(folder):
+    val_loss = []
+    val_acc = []
+    val_acc_col = 3
+    val_loss_col = 4
+    with open(os.path.join(folder, 'model_train_new.csv'), 'r') as f:
+        reader = csv.reader(f)
+        is_header = True
+        for row in reader:
+            if row:
+                # Save header row.
+                if is_header:
+                    header = row
+                    is_header = False
+                else:
+                    val_acc.append(float(row[val_acc_col]))
+                    val_loss.append(float(row[val_loss_col]))
+    print(header)
+    print(np.corrcoef(val_acc, val_loss))
+
+    """ifile = open(os.path.join(folder, 'model_train_new.csv'))
+    reader = csv.reader(ifile)
+    rownum = 0
+    for row in reader:
+        # Save header row.
+        if rownum == 0:
+            header = row
+        else:
+            val_acc.append(row[val_acc_col])
+            val_loss.append(row[val_loss_col])
+    ifile.close()
+    print(header)
+    print(np.corrcoef(val_acc, val_loss))"""
 
 
 # Compute confusion matrix
