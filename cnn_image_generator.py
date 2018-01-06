@@ -1,4 +1,3 @@
-
 import itertools
 import os
 from collections import Counter
@@ -25,6 +24,8 @@ from keras import backend as K
 K.set_image_dim_ordering('tf')
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
+from keras.models import model_from_json
+from keras.models import load_model
 
 """PATH = os.getcwd()
 data_path = PATH + '/data_resized_extended_5'
@@ -64,6 +65,7 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_r
         validation_data=validation_generator,
         validation_steps=validation_size)
     save_model(model, path_to_store)
+    model = select_best_model(data_path=path_to_store, model=model, window_size=5)
     plot_confusion_matrix(model, validation_generator, validation_size, path_to_store)
 
 
@@ -95,7 +97,7 @@ def create_test_validation(data_path, width=128, height=128, batch_size=32, is_r
         color_mode=color_mode,
         batch_size=batch_size,
         class_mode='categorical',
-        shuffle=True)
+        shuffle=False)
     return validation_generator
 
 
@@ -175,7 +177,8 @@ def define_callbacks(path):
 
     filepath = path + "/Best-weights-my_model-{epoch:03d}-{loss:.4f}-{acc:.4f}-{val_loss:.4f}-{val_acc:.4f}.hdf5"
 
-    checkpoint = callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
+    checkpoint = callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='auto',
+                                           save_weights_only=True)
 
     callbacks_list = [csv_log,
                       # , early_stopping,
@@ -185,13 +188,11 @@ def define_callbacks(path):
 
 def save_model(model, path):
     # serialize model to JSON
-    model_json = model.to_json()
+    model_json = model.model.to_json()
     with open(os.path.join(path, "model.json"), "w") as json_file:
         json_file.write(model_json)
     # serialize weights to HDF5
-    model.save_weights(os.path.join(path, "model.h5"))
-    model.save(os.path.join(path, 'model.hdf5'))
-    print("Saved model to disk")
+    print("Saved architecture to disk")
 
 
 """img_rows = 256
@@ -493,14 +494,14 @@ fig.savefig("featuremaps-layer-{}".format(layer_num) + '.jpg')
 """
 
 
-def select_best_model(data_folder, window_size, model):
+def select_best_model(data_path, model, window_size=5):
     """
     This function load the model weights with the best val_loss and deletes the others from data folder
     :param data_folder:
     :param window_size:
     :param model
     """
-    files = [f for f in os.listdir(data_folder) if 'Best' in f]
+    files = [f for f in os.listdir(data_path) if 'Best' in f]
     files.sort()
     n = len(files)
     # val_loss = (min_val_loss, position_val_loss_min)
@@ -518,14 +519,18 @@ def select_best_model(data_folder, window_size, model):
             suma = suma + float(epoch_values[val_loss_position])
             j = j + 1
             cont = cont + 1
-        print('media ' + str(suma/window_size))
-        if suma/window_size < val_loss[0]:
-            val_loss[0] = suma/window_size
+        print('media ' + str(suma / window_size))
+        if suma / window_size < val_loss[0]:
+            val_loss[0] = suma / window_size
             val_loss[1] = i
         i = i + 1
     print('mejor media ' + str(val_loss[0]))
-    print('pos ' + str(i))
-    model = load_model(os.path.join(data_folder, files[val_loss[1]]))
+    print('pos ' + str(val_loss[1]))
+    model.load_weights(os.path.join(data_path, files[val_loss[1]]))
+    for f in files:
+        if f != files[val_loss[1]]:
+            os.remove(os.path.join(data_path, f))
+    return model
 
 
 # Plotting the confusion matrix
@@ -540,7 +545,7 @@ def plot_confusion_matrix(model, validation_generator, steps, path_to_store, nor
     filename = s[0]
     loaded_model = load_model('model.hdf5')
     loaded_model.load_weights(filename)"""
-    Y_pred = model.predict_generator(generator=validation_generator, steps=steps)
+    Y_pred = model.predict_generator(generator=validation_generator)
     y_pred = np.argmax(Y_pred, axis=1)
     print('Confusion Matrix')
     print(confusion_matrix(validation_generator.classes, y_pred))
@@ -604,7 +609,7 @@ plt.show()
 """
 # %%
 # Saving and loading model and weights
-from keras.models import load_model
+
 
 # serialize model to JSON
 """model_json = model.to_json()
