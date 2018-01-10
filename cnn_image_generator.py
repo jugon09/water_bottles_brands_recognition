@@ -68,7 +68,7 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_r
     save_model(model, path_to_store)
     model = select_best_model(data_path=path_to_store, model=model, window_size=5)
     plot_confusion_matrix(model, validation_generator, validation_size, path_to_store)
-    compute_correlation_val_loss_acc_loss(path_to_store)
+    compute_correlation_loss_acc(path_to_store)
 
 
 def create_train_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
@@ -554,9 +554,13 @@ def plot_confusion_matrix(model, validation_generator, steps, path_to_store, nor
     # plt.savefig(path_to_store+'/confusion_matrix.jpg')"""
 
 
-def compute_correlation_val_loss_acc_loss(folder):
+def compute_correlation_loss_acc(folder):
+    train_acc = []
+    train_loss = []
     val_loss = []
     val_acc = []
+    train_acc_col = 1
+    train_loss_col = 2
     val_acc_col = 3
     val_loss_col = 4
     with open(os.path.join(folder, 'model_train_new.csv'), 'r') as f:
@@ -569,9 +573,15 @@ def compute_correlation_val_loss_acc_loss(folder):
                     header = row
                     is_header = False
                 else:
+                    train_acc.append(float(row[train_acc_col]))
+                    train_loss.append(float(row[train_loss_col]))
                     val_acc.append(float(row[val_acc_col]))
                     val_loss.append(float(row[val_loss_col]))
-    print(header)
+
+    print('Correlation between ' + header[train_acc_col] + ' ' + header[train_loss_col])
+    print(np.corrcoef(train_acc, train_loss))
+    print('')
+    print('Correlation between ' + header[val_acc_col] + ' ' + header[val_loss_col])
     print(np.corrcoef(val_acc, val_loss))
 
     """ifile = open(os.path.join(folder, 'model_train_new.csv'))
