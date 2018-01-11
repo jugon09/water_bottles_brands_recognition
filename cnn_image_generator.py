@@ -35,7 +35,8 @@ data_dir_list.sort()"""
 
 
 def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_rows, img_cols, batch_size=32,
-               dataset_size=10000, train_fraction=0.65, validation_fraction=0.35):
+               dataset_size=10000, train_fraction=0.65, validation_fraction=0.35, optimizer='rmsprop', dropout=0.5,
+               num_neurs=64):
     """img_data = get_images(data_path, channels)
     labels = create_labels(img_data.shape[0], data_path)
     # convert class labels to on-hot encoding
@@ -51,11 +52,12 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_r
     train_size = int(dataset_size * train_fraction)
     validation_size = int(dataset_size * validation_fraction)
     is_rgb = True if channels == 3 else False
-    train_generator = create_train_validation(data_path=data_path, width=img_rows, height=img_cols,
-                                              batch_size=batch_size, is_rgb=is_rgb)
-    validation_generator = create_test_validation(data_path=data_path, width=img_rows, height=img_cols,
+    train_generator = create_train_generator(data_path=data_path, width=img_rows, height=img_cols,
+                                             batch_size=batch_size, is_rgb=is_rgb)
+    validation_generator = create_validation_generator(data_path=data_path, width=img_rows, height=img_cols,
                                                   batch_size=batch_size, is_rgb=is_rgb)
-    model = define_model(input_shape=train_generator.image_shape, num_classes=num_classes)
+    model = define_model(input_shape=train_generator.image_shape, num_classes=num_classes, optimizer=optimizer,
+                         dropout=dropout, num_neurs=num_neurs)
     callbacks_list = define_callbacks(path_to_store)
     model.fit_generator(
         train_generator,
@@ -67,11 +69,13 @@ def create_cnn(num_classes, data_path, num_epoch, path_to_store, channels, img_r
         validation_steps=validation_size)
     save_model(model, path_to_store)
     model = select_best_model(data_path=path_to_store, model=model, window_size=5)
-    plot_confusion_matrix(model, validation_generator, validation_size, path_to_store)
+    test_generator = create_test_generator(data_path=data_path, width=img_rows, height=img_cols,
+                                                       batch_size=batch_size, is_rgb=is_rgb)
+    plot_confusion_matrix(model, test_generator, validation_size, path_to_store)
     compute_correlation_loss_acc(path_to_store)
 
 
-def create_train_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
+def create_train_generator(data_path, width=128, height=128, batch_size=32, is_rgb=False):
     datagen = ImageDataGenerator(
         rotation_range=20,
         width_shift_range=0.05,
@@ -90,8 +94,16 @@ def create_train_validation(data_path, width=128, height=128, batch_size=32, is_
     return train_generator
 
 
-def create_test_validation(data_path, width=128, height=128, batch_size=32, is_rgb=False):
-    test_datagen = ImageDataGenerator(rescale=1. / 255)
+def create_validation_generator(data_path, width=128, height=128, batch_size=32, is_rgb=False):
+    test_datagen = ImageDataGenerator(
+        rotation_range=20,
+        width_shift_range=0.05,
+        height_shift_range=0.05,
+        zoom_range=0.2,
+        vertical_flip=True,
+        fill_mode='nearest',
+        rescale=1. / 255
+    )
     color_mode = 'rgb' if is_rgb else 'grayscale'
     validation_generator = test_datagen.flow_from_directory(
         directory=os.path.join(data_path, 'Validation'),
@@ -103,7 +115,20 @@ def create_test_validation(data_path, width=128, height=128, batch_size=32, is_r
     return validation_generator
 
 
-def define_model(input_shape, num_classes):
+def create_test_generator(data_path, width=128, height=128, batch_size=32, is_rgb=False):
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
+    color_mode = 'rgb' if is_rgb else 'grayscale'
+    test_generator = test_datagen.flow_from_directory(
+        directory=os.path.join(data_path, 'Validation'),
+        target_size=(width, height),
+        color_mode=color_mode,
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=False)
+    return test_generator
+
+
+def define_model(input_shape, num_classes, optimizer, dropout, num_neurs):
     model = Sequential()
 
     model.add(Convolution2D(32, (3, 3), border_mode='same', input_shape=input_shape))
@@ -111,7 +136,7 @@ def define_model(input_shape, num_classes):
     model.add(Convolution2D(32, (3, 3)))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.5))
+    model.add(Dropout(dropout))
 
     """model.add(Convolution2D(64, 3, 3))
     model.add(Activation('relu'))
@@ -121,15 +146,15 @@ def define_model(input_shape, num_classes):
     model.add(Dropout(0.5))"""
 
     model.add(Flatten())
-    model.add(Dense(64))
+    model.add(Dense(num_neurs))
     model.add(Activation('relu'))
-    model.add(Dropout(0.5))
+    model.add(Dropout(dropout))
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
 
-    sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.0, nesterov=False)
+    # sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.0, nesterov=False)
     # model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=["accuracy"])
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=["accuracy"])
+    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=["accuracy"])
     return model
 
 
@@ -564,6 +589,8 @@ def compute_correlation_loss_acc(folder):
     val_acc_col = 3
     val_loss_col = 4
     with open(os.path.join(folder, 'model_train_new.csv'), 'r') as f:
+    #with open(os.path.join(os.getcwd(), 'Prototype_8/Size_128_Channels_1_opt_adam_num_neurs_32/model_train_new.csv'),
+              #'r') as f:
         reader = csv.reader(f)
         is_header = True
         for row in reader:
@@ -577,8 +604,8 @@ def compute_correlation_loss_acc(folder):
                     train_loss.append(float(row[train_loss_col]))
                     val_acc.append(float(row[val_acc_col]))
                     val_loss.append(float(row[val_loss_col]))
-
-    print('Correlation between ' + header[train_acc_col] + ' ' + header[train_loss_col])
+    print('')
+    print('Correlation between train_' + header[train_acc_col] + ' train_' + header[train_loss_col])
     print(np.corrcoef(train_acc, train_loss))
     print('')
     print('Correlation between ' + header[val_acc_col] + ' ' + header[val_loss_col])
