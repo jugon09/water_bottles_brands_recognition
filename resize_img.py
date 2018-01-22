@@ -32,7 +32,7 @@ for dataset in data_dir_list:
         input_img_resize = cv2.resize(input_img, (img_rows, img_cols))
         cv2.imwrite(final_directory + '/' + img + '_resize', input_img_resize)"""
 
-PATH = os.getcwd()
+"""PATH = os.getcwd()
 data_path = os.path.join(PATH, 'Optimize_memory/data_resized_256_3')
 data_dir_list = os.listdir(data_path)
 data_dir_list.sort()
@@ -42,4 +42,4 @@ for dataset in data_dir_list:
     img_list = os.listdir(dataset_path)
     for img in img_list:
         s = os.path.join(dataset_path, img)
-        os.rename(s, os.path.join(dataset_path, img.replace('_resize', '')))
+        os.rename(s, os.path.join(dataset_path, img.replace('_resize', '')))"""
