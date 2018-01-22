@@ -39,11 +39,6 @@ for s in size:
                     sys.stdout = open(os.path.join(prototype_folder_iter, 'output.txt'), "w")
                     data_folder = os.path.join(os.path.join(PATH, 'Optimize_memory'), 'data_resized_' + str(s) + '_' +
                                                str(ch))
-                    """"'data_prototype_' + str(prototype) + '_' + str(s) + '_' + str(ch))
-                    if not os.path.exists(data_folder):
-                        duplicate_resized_directory(str(s), str(ch), data_folder)
-                        generate_new_images(data_folder)
-                    create_cnn(num_classes, data_folder, num_epoch, prototype_folder_iter, ch)"""
                     create_cnn(num_classes=num_classes, data_path=data_folder, num_epoch=num_epoch,
                                path_to_store=prototype_folder_iter, channels=ch, img_rows=s, img_cols=s,
                                batch_size=batch_size, dataset_size=dataset_size, train_fraction=train_fraction,
