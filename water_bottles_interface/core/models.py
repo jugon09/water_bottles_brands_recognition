@@ -15,7 +15,7 @@ class Prediction(models.Model):
         :return: path where the image will be stored
         """
         ext = filename.split('.')[-1]
-        file = 'header_image.' + ext
+        file = 'image.' + ext
         return os.path.join('images_files', self.prediction, file)
 
     image = models.ImageField(null=False, blank=False, upload_to=image_path, default='images/images.png')
