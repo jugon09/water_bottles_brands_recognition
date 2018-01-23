@@ -1,0 +1,27 @@
+{% block content %}
+<div id="content-main">
+
+<div class="module">
+<h2>Predicción de marcas de agua embotellada</h2>
+<pre>
+{% if form.subject.errors %}
+    <ol>
+    {% for error in form.subject.errors %}
+        <li><strong>{{ error|escape }}</strong></li>
+    {% endfor %}
+    </ol>
+{% else %}
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form }}
+    <input type="submit" value="Submit" />
+</form>
+{% if clase %}
+    {{ clase }}
+{% endif %}
+</pre>
+</div>
+
+</div>
+{% endif %}
+{% endblock %}

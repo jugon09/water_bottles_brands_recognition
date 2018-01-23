@@ -1,0 +1,1 @@
+Prototype number 8 size=256x256 channels=1 Optimizer = rmsprop Numero de neuronas = 32

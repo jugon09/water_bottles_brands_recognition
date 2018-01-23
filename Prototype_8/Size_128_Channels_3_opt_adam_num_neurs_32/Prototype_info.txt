@@ -1,1 +1,0 @@
-Prototype number 8 size=128x128 channels=3 Optimizer = adam Numero de neuronas = 32
