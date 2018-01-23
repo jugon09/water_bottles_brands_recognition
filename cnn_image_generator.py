@@ -232,7 +232,6 @@ def select_best_model(data_path, model, window_size=5):
         cont = 0
         while j < n and cont < window_size:
             epoch_values = files[j].split('-')
-            print(epoch_values[val_loss_position])
             suma = suma + float(epoch_values[val_loss_position])
             j = j + 1
             cont = cont + 1
@@ -302,6 +301,19 @@ def compute_correlation_loss_acc(folder):
     print(np.corrcoef(val_acc, val_loss))
 
 
+def test_one_image(image_path):
+    with open('model.json', 'r') as f:
+        arch = f.read()
+    model = model_from_json(arch)
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=["accuracy"])
+    model.load_weights('Best-weights.h5')
+    input_img = cv2.imread(image_path)
+    input_img_resize = cv2.resize(input_img, (128, 128))
+    test_image = np.array(input_img_resize)
+    test_image = test_image.astype('float32')
+    test_image /= 255
+    return model.predict_classes(test_image)
+
 # serialize model to JSON
 """model_json = model.to_json()
 with open("model2.json", "w") as json_file:
@@ -320,4 +332,4 @@ loaded_model.load_weights("model2.h5")
 print("Loaded model from disk")
 
 model.save('model2.hdf5')
-loaded_model = load_model('model2.hdf5')
+loaded_model = load_model('model2.hdf5')"""
